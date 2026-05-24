@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "hiteria-audio-manager",
+  "version": "${version}",
+  "name": "Hiteria Audio Manager",
+  "description": "Shared FFmpeg audio library for Hiteria mods",
+  "authors": [
+    "Hiteria Village"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/hiteria-audio-manager/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "org.hiteria.audio.HiteriaAudioManager"
+    ],
+    "client": [
+      "org.hiteria.audio.client.HiteriaAudioClient"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

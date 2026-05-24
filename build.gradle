@@ -1,0 +1,136 @@
+plugins {
+    id 'fabric-loom' version '1.8-SNAPSHOT'
+    id 'maven-publish'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "hiteria-audio-manager" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    
+    implementation "org.bytedeco:javacv:1.5.10"
+    implementation "org.bytedeco:ffmpeg:6.1.1-1.5.10"
+    implementation "org.bytedeco:javacpp:1.5.10"
+    
+    // FFmpeg binaries for audio
+    implementation "org.bytedeco:ffmpeg:6.1.1-1.5.10:windows-x86_64"
+    implementation "org.bytedeco:ffmpeg:6.1.1-1.5.10:linux-x86_64"
+    implementation "org.bytedeco:ffmpeg:6.1.1-1.5.10:macosx-x86_64"
+    implementation "org.bytedeco:ffmpeg:6.1.1-1.5.10:macosx-arm64"
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+    
+    from {
+        configurations.runtimeClasspath.findAll {
+            def name = it.name
+            (name.contains('javacv') || name.contains('ffmpeg') || name.contains('javacpp')) &&
+            !name.contains('android') && !name.contains('ios') && !name.contains('armhf')
+        }.collect {
+            if (it.isDirectory()) {
+                it
+            } else {
+                zipTree(it)
+            }
+        }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/MANIFEST.MF'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libdrm*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libavdevice*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libjniavdevice*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libavfilter*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libjniavfilter*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libswscale*'
+    exclude 'org/bytedeco/ffmpeg/linux-x86_64/libjniswscale*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libdrm*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libavdevice*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libjniavdevice*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libavfilter*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libjniavfilter*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libswscale*'
+    exclude 'org/bytedeco/ffmpeg/linux-aarch64/libjniswscale*'
+}
+
+remapJar {
+    inputFile = jar.archiveFile
+    dependsOn jar
+}
+
+task copyDevJar(type: Copy) {
+    dependsOn remapJar
+    from layout.buildDirectory.file("devlibs/${project.archives_base_name}-${project.version}-dev.jar")
+    into layout.buildDirectory.dir("libs")
+    rename { "${project.archives_base_name}-${project.version}.jar" }
+    
+    doLast {
+        println "Copied dev jar (with FFmpeg) to libs folder"
+    }
+}
+
+build.dependsOn copyDevJar
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = targetJavaVersion
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+    repositories {
+    }
+}
